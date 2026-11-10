@@ -48,8 +48,8 @@ It's functional and ready to use as-is, but this is not a finished product yet. 
 
 ## Usage
 
-Download `timekeeper.html` and open it in any browser. No install, no server, no setup.
-
+Visit:
+https://markohio.github.io/Timekeeper/
 ---
 
 ## Author
