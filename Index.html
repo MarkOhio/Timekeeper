@@ -1,0 +1,621 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Timekeeper</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<style>
+  :root {
+    --bg: #0A0C10;
+    --panel: #12151B;
+    --panel-2: #171B22;
+    --border: #242933;
+    --text: #ECEAE5;
+    --text-dim: #838B99;
+    --text-faint: #565C68;
+    --amber: #FFB648;
+    --amber-dim: #6B5330;
+    --cyan: #5FE3C0;
+    --cyan-dim: #2C554C;
+    --danger: #FF6B6B;
+    --radius: 10px;
+    box-sizing: border-box;
+    padding-top: env(safe-area-inset-top, 0px);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+  *, *::before, *::after { box-sizing: inherit; }
+
+  @media (prefers-color-scheme: light) {
+    :root:not([data-theme="dark"]) {
+      --bg: #F3F1EC; --panel: #FFFFFF; --panel-2: #FAF9F6; --border: #DEDAD1;
+      --text: #17181C; --text-dim: #6A6E78; --text-faint: #9A9DA5;
+      --amber-dim: #FFE7BE; --cyan-dim: #C8F3E7;
+    }
+  }
+  :root[data-theme="light"] {
+    --bg: #F3F1EC; --panel: #FFFFFF; --panel-2: #FAF9F6; --border: #DEDAD1;
+    --text: #17181C; --text-dim: #6A6E78; --text-faint: #9A9DA5;
+    --amber-dim: #FFE7BE; --cyan-dim: #C8F3E7;
+  }
+
+  html, body {
+    background: var(--bg); color: var(--text); margin: 0; min-height: 100%;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  }
+  .mono {
+    font-family: ui-monospace, "SF Mono", "Cascadia Code", "JetBrains Mono", Menlo, Consolas, monospace;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .wrap { max-width: 520px; margin: 0 auto; padding: 28px 18px 60px; }
+
+  .top { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 22px; }
+  .brand { font-size: 15px; font-weight: 600; letter-spacing: 0.02em; color: var(--text-dim); }
+  .theme-btn {
+    background: none; border: 1px solid var(--border); color: var(--text-dim);
+    border-radius: 999px; padding: 5px 12px; font-size: 12px; cursor: pointer;
+  }
+  .theme-btn:hover { color: var(--text); border-color: var(--text-faint); }
+
+  .clock-panel { text-align: center; padding: 20px 10px 18px; margin-bottom: 22px; }
+  .clock-time { font-size: clamp(2.3rem, 10vw, 3rem); font-weight: 600; line-height: 1; color: var(--text); }
+  .clock-date { margin-top: 8px; color: var(--text-dim); font-size: 14px; }
+
+  .mode-tabs { display: flex; gap: 8px; margin-bottom: 16px; }
+  .mode-tabs button {
+    flex: 1; background: var(--panel); border: 1px solid var(--border); color: var(--text-dim);
+    padding: 12px 6px; border-radius: var(--radius); font-size: 13.5px; font-family: inherit; cursor: pointer;
+  }
+  .mode-tabs button.active { border-color: var(--cyan); color: var(--text); }
+
+  section.panel { background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius); padding: 18px 18px 20px; margin-bottom: 16px; }
+
+  .panel-label { font-size: 12px; letter-spacing: 0.08em; color: var(--text-faint); margin-bottom: 12px; }
+  .panel-label.amber { color: var(--amber); }
+  .panel-label.cyan { color: var(--cyan); }
+  .panel-label.row { display: flex; justify-content: space-between; align-items: center; }
+
+  .seg { display: inline-flex; background: var(--panel-2); border: 1px solid var(--border); border-radius: 8px; padding: 3px; gap: 3px; }
+  .seg button { border: none; background: transparent; color: var(--text-dim); padding: 7px 14px; border-radius: 6px; font-size: 13.5px; cursor: pointer; font-family: inherit; }
+  .seg button.active { background: var(--amber-dim); color: var(--amber); }
+  button:focus-visible, input:focus-visible, select:focus-visible { outline: 2px solid var(--cyan); outline-offset: 2px; }
+
+  .from-value { margin-top: 14px; font-size: 19px; font-weight: 600; }
+  .from-value .sub { display: block; font-size: 13px; font-weight: 400; color: var(--text-dim); margin-top: 2px; }
+
+  .fields { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 14px; align-items: flex-end; }
+  .field { display: flex; flex-direction: column; gap: 5px; }
+  .field label { font-size: 11px; color: var(--text-faint); letter-spacing: 0.04em; }
+  .field input[type="date"] {
+    background: var(--panel-2); border: 1px solid var(--border); color: var(--text);
+    border-radius: 7px; padding: 9px 10px; font-size: 15px; font-family: inherit; min-width: 142px; height: 40px;
+  }
+
+  .link-btn { background: none; border: none; color: var(--cyan); font-size: 12px; cursor: pointer; padding: 0; }
+  .link-btn:hover { text-decoration: underline; }
+
+  .duration-row { display: flex; gap: 10px; margin-top: 14px; }
+
+  .twoblock { display: flex; flex-direction: column; gap: 16px; }
+  .twoblock .block-title { font-size: 13px; font-weight: 600; margin-bottom: 2px; }
+  .twoblock .block-title.amber { color: var(--amber); }
+  .twoblock .block-title.cyan { color: var(--cyan); }
+  .divider { height: 1px; background: var(--border); margin: 2px 0; }
+
+  .result { text-align: center; padding: 22px 12px 20px; }
+  .result-time { font-size: clamp(2rem, 9vw, 2.6rem); font-weight: 700; color: var(--cyan); line-height: 1; }
+  .result-date { margin-top: 8px; font-size: 15px; color: var(--text); }
+  .result-sub { margin-top: 10px; font-size: 13px; color: var(--text-dim); line-height: 1.5; }
+  .result-flag {
+    display: inline-block; margin-top: 10px; font-size: 11px; letter-spacing: 0.06em; color: var(--text-faint);
+    border: 1px solid var(--border); border-radius: 999px; padding: 3px 10px;
+  }
+
+  .hidden { display: none !important; }
+
+  /* ---- wheel picker ---- */
+  .wheel-outer {
+    position: relative;
+    width: 54px;
+    height: 108px;
+    overflow: hidden;
+    border: 1px solid var(--border);
+    border-radius: 7px;
+    background: var(--panel-2);
+    touch-action: pan-y;
+    user-select: none;
+    -webkit-user-select: none;
+  }
+  .wheel-outer.wide { width: 64px; }
+  .wheel-outer::before, .wheel-outer::after {
+    content: ''; position: absolute; left: 0; right: 0; height: 36px; pointer-events: none; z-index: 2;
+  }
+  .wheel-outer::before { top: 0; background: linear-gradient(var(--panel-2), transparent); }
+  .wheel-outer::after { bottom: 0; background: linear-gradient(transparent, var(--panel-2)); }
+  .wheel-scroll {
+    height: 100%; overflow-y: auto; scroll-snap-type: y mandatory;
+    -webkit-overflow-scrolling: touch; scrollbar-width: none;
+  }
+  .wheel-scroll::-webkit-scrollbar { display: none; }
+  .wheel-item {
+    height: 36px; display: flex; align-items: center; justify-content: center;
+    font-size: 14px; color: var(--text-dim); scroll-snap-align: center;
+  }
+  .wheel-item.active { color: var(--text); font-weight: 700; font-size: 16px; }
+  .wheel-highlight {
+    position: absolute; left: 0; right: 0; top: 36px; height: 36px;
+    border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); pointer-events: none; z-index: 1;
+  }
+  .wheel-edit-input {
+    position: absolute; inset: 0; width: 100%; height: 100%; text-align: center;
+    background: var(--panel-2); border: 2px solid var(--cyan); border-radius: 7px;
+    font-size: 16px; font-family: inherit; color: var(--text); z-index: 5; padding: 0;
+  }
+
+  @media (max-width: 420px) {
+    .field input[type="date"] { min-width: 126px; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="top">
+    <div class="brand">Timekeeper</div>
+    <button class="theme-btn" id="themeToggle" type="button">Light</button>
+  </div>
+
+  <div class="clock-panel">
+    <div class="clock-time mono" id="liveClock">--:--:-- --</div>
+    <div class="clock-date" id="liveDate">—</div>
+  </div>
+
+  <div class="mode-tabs">
+    <button type="button" id="tabAdd" class="active">Add duration</button>
+    <button type="button" id="tabBetween">Time between two times</button>
+  </div>
+
+  <!-- ===== ADD DURATION MODE ===== -->
+  <div id="modeAddWrap">
+    <section class="panel">
+      <div class="panel-label amber">FROM</div>
+      <div class="seg" role="group" aria-label="From time source">
+        <button type="button" id="fromNowBtn" class="active">Now</button>
+        <button type="button" id="fromCustomBtn">Custom</button>
+      </div>
+
+      <div class="from-value" id="fromNowDisplay">
+        <span class="mono" id="fromNowTime">--:--</span>
+        <span class="sub" id="fromNowDate">—</span>
+      </div>
+
+      <div class="fields hidden" id="fromCustomFields">
+        <div class="field"><label for="fromDate">Date</label><input type="date" id="fromDate"></div>
+        <div class="field"><label>Hr</label><div class="wheel-outer" id="fromHourWheel"></div></div>
+        <div class="field"><label>Min</label><div class="wheel-outer" id="fromMinWheel"></div></div>
+        <div class="field"><label>&nbsp;</label><div class="wheel-outer wide" id="fromAmpmWheel"></div></div>
+      </div>
+      <button type="button" class="link-btn hidden" id="syncNowBtn" style="margin-top:12px;">Set to current moment</button>
+    </section>
+
+    <section class="panel">
+      <div class="panel-label">DURATION TO ADD</div>
+      <div class="duration-row">
+        <div class="field"><label>Days</label><div class="wheel-outer" id="durDaysWheel"></div></div>
+        <div class="field"><label>Hours</label><div class="wheel-outer" id="durHoursWheel"></div></div>
+        <div class="field"><label>Minutes</label><div class="wheel-outer" id="durMinsWheel"></div></div>
+      </div>
+    </section>
+
+    <section class="panel result">
+      <div class="panel-label cyan">DEADLINE</div>
+      <div class="result-time mono" id="addResultTime">—</div>
+      <div class="result-date" id="addResultDate">—</div>
+      <div class="result-sub" id="addResultSub">—</div>
+    </section>
+  </div>
+
+  <!-- ===== TIME BETWEEN TWO TIMES MODE ===== -->
+  <div id="modeBetweenWrap" class="hidden">
+    <section class="panel">
+      <div class="twoblock">
+
+        <div>
+          <div class="panel-label row">
+            <span class="amber block-title">FROM</span>
+            <button type="button" class="link-btn" id="btwFromNowBtn">Now</button>
+          </div>
+          <div class="fields">
+            <div class="field"><label for="btwFromDate">Date</label><input type="date" id="btwFromDate"></div>
+            <div class="field"><label>Hr</label><div class="wheel-outer" id="btwFromHourWheel"></div></div>
+            <div class="field"><label>Min</label><div class="wheel-outer" id="btwFromMinWheel"></div></div>
+            <div class="field"><label>&nbsp;</label><div class="wheel-outer wide" id="btwFromAmpmWheel"></div></div>
+          </div>
+        </div>
+
+        <div class="divider"></div>
+
+        <div>
+          <div class="panel-label row">
+            <span class="cyan block-title">TO</span>
+            <button type="button" class="link-btn" id="btwToNowBtn">Now</button>
+          </div>
+          <div class="fields">
+            <div class="field"><label for="btwToDate">Date</label><input type="date" id="btwToDate"></div>
+            <div class="field"><label>Hr</label><div class="wheel-outer" id="btwToHourWheel"></div></div>
+            <div class="field"><label>Min</label><div class="wheel-outer" id="btwToMinWheel"></div></div>
+            <div class="field"><label>&nbsp;</label><div class="wheel-outer wide" id="btwToAmpmWheel"></div></div>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <section class="panel result">
+      <div class="panel-label cyan">TIME BETWEEN</div>
+      <div class="result-time mono" id="btwResultTime">—</div>
+      <div class="result-sub" id="btwResultSub">—</div>
+      <div class="result-flag" id="btwFlag">TO is after FROM</div>
+    </section>
+  </div>
+
+</div>
+
+<script>
+(function () {
+  const WD = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+  const MO = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const pad2 = n => String(n).padStart(2, '0');
+  const dateStr = d => `${d.getFullYear()}-${pad2(d.getMonth()+1)}-${pad2(d.getDate())}`;
+
+  function fmtTime12(d, withSeconds) {
+    let h = d.getHours();
+    const ampm = h >= 12 ? 'PM' : 'AM';
+    h = h % 12; if (h === 0) h = 12;
+    const m = pad2(d.getMinutes());
+    if (withSeconds) return `${h}:${m}:${pad2(d.getSeconds())} ${ampm}`;
+    return `${h}:${m} ${ampm}`;
+  }
+  function fmtDateLine(d) {
+    return `${WD[d.getDay()]}, ${MO[d.getMonth()]} ${d.getDate()}, ${d.getFullYear()}`;
+  }
+  function buildDate(dateVal, hourVal, minVal, ampmVal) {
+    const parts = (dateVal || dateStr(new Date())).split('-').map(Number);
+    let hh = (parseInt(hourVal, 10) || 12) % 12;
+    if (ampmVal === 'PM') hh += 12;
+    const mm = Math.min(59, Math.max(0, parseInt(minVal, 10) || 0));
+    return new Date(parts[0], parts[1] - 1, parts[2], hh, mm, 0, 0);
+  }
+
+  const el = id => document.getElementById(id);
+
+  /* ================= WHEEL PICKER ================= */
+  const ITEM_H = 36;
+
+  function makeWheel({ container, values, format, initial, parseInput, onChange }) {
+    container.innerHTML = '';
+    const scroller = document.createElement('div');
+    scroller.className = 'wheel-scroll';
+    container.appendChild(scroller);
+
+    const topPad = document.createElement('div'); topPad.style.height = ITEM_H + 'px';
+    scroller.appendChild(topPad);
+
+    const itemEls = values.map(v => {
+      const d = document.createElement('div');
+      d.className = 'wheel-item mono';
+      d.textContent = format(v);
+      scroller.appendChild(d);
+      return d;
+    });
+
+    const botPad = document.createElement('div'); botPad.style.height = ITEM_H + 'px';
+    scroller.appendChild(botPad);
+
+    const highlight = document.createElement('div');
+    highlight.className = 'wheel-highlight';
+    container.appendChild(highlight);
+
+    let currentIndex = Math.max(0, values.indexOf(initial));
+    let settleTimer = null;
+    let editing = false;
+    let downX = 0, downY = 0, downT = 0, lastTap = 0;
+
+    function highlightActive(idx) {
+      itemEls.forEach((it, i) => it.classList.toggle('active', i === idx));
+    }
+    function scrollToIndex(idx, smooth) {
+      currentIndex = Math.max(0, Math.min(values.length - 1, idx));
+      scroller.scrollTo({ top: currentIndex * ITEM_H, behavior: smooth ? 'smooth' : 'auto' });
+      highlightActive(currentIndex);
+    }
+    function commit(idx) {
+      currentIndex = Math.max(0, Math.min(values.length - 1, idx));
+      highlightActive(currentIndex);
+      if (onChange) onChange(values[currentIndex]);
+    }
+
+    scroller.addEventListener('scroll', () => {
+      const idx = Math.round(scroller.scrollTop / ITEM_H);
+      highlightActive(Math.max(0, Math.min(values.length - 1, idx)));
+      clearTimeout(settleTimer);
+      settleTimer = setTimeout(() => {
+        const finalIdx = Math.max(0, Math.min(values.length - 1, Math.round(scroller.scrollTop / ITEM_H)));
+        scroller.scrollTo({ top: finalIdx * ITEM_H, behavior: 'auto' });
+        commit(finalIdx);
+      }, 130);
+    }, { passive: true });
+
+    function enterEdit() {
+      if (editing) return;
+      editing = true;
+      const input = document.createElement('input');
+      input.type = 'text';
+      input.inputMode = 'numeric';
+      input.className = 'wheel-edit-input';
+      input.value = format(values[currentIndex]).trim();
+      container.appendChild(input);
+      input.focus(); input.select();
+
+      function exit(raw) {
+        if (!editing) return;
+        editing = false;
+        input.remove();
+        if (raw != null) {
+          const parsed = parseInput(raw);
+          if (parsed !== null) {
+            const idx = values.indexOf(parsed);
+            if (idx >= 0) { scrollToIndex(idx, false); commit(idx); }
+          }
+        }
+      }
+      input.addEventListener('keydown', e => {
+        if (e.key === 'Enter') { e.preventDefault(); exit(input.value); }
+        if (e.key === 'Escape') { e.preventDefault(); exit(null); }
+      });
+      input.addEventListener('blur', () => exit(input.value));
+    }
+
+    container.addEventListener('pointerdown', e => {
+      if (editing) return;
+      downX = e.clientX; downY = e.clientY; downT = Date.now();
+    });
+    container.addEventListener('pointerup', e => {
+      if (editing) return;
+      const dt = Date.now() - downT;
+      const dx = Math.abs(e.clientX - downX), dy = Math.abs(e.clientY - downY);
+      if (dt < 300 && dx < 6 && dy < 6) {
+        const now = Date.now();
+        if (now - lastTap < 350) { enterEdit(); lastTap = 0; }
+        else { lastTap = now; }
+      }
+    });
+
+    requestAnimationFrame(() => scrollToIndex(currentIndex, false));
+
+    return {
+      setValue(v) {
+        const idx = values.indexOf(v);
+        if (idx >= 0) scrollToIndex(idx, false);
+      },
+      getValue() { return values[currentIndex]; }
+    };
+  }
+
+  const range = (a, b) => Array.from({ length: b - a + 1 }, (_, i) => a + i);
+  const HOURS = range(1, 12);
+  const MINS = range(0, 59);
+  const AMPM = ['AM', 'PM'];
+  const DAYS_D = range(0, 99);
+  const HOURS_D = range(0, 99);
+  const MINS_D = range(0, 59);
+
+  const parseHour = s => { const n = parseInt(s, 10); return isNaN(n) ? null : Math.max(1, Math.min(12, n)); };
+  const parseMin = s => { const n = parseInt(s, 10); return isNaN(n) ? null : Math.max(0, Math.min(59, n)); };
+  const parseAmpm = s => { const c = (s || '').trim()[0]; if (!c) return null; return c.toUpperCase() === 'A' ? 'AM' : c.toUpperCase() === 'P' ? 'PM' : null; };
+  const parseDurD = max => s => { const n = parseInt(s, 10); return isNaN(n) ? null : Math.max(0, Math.min(max, n)); };
+
+  /* ================= APP STATE ================= */
+  let liveNow = new Date();
+  let mode = 'add';
+  let fromMode = 'now';
+
+  const S = {
+    from: {}, dur: { days: 0, hours: 20, mins: 14 },
+    btwFrom: {}, btwTo: {}
+  };
+
+  function nowParts() {
+    const now = new Date();
+    let h12 = now.getHours() % 12; if (h12 === 0) h12 = 12;
+    return { hour: h12, min: now.getMinutes(), ampm: now.getHours() >= 12 ? 'PM' : 'AM', dateStr: dateStr(now) };
+  }
+  const p0 = nowParts();
+  S.from = { hour: p0.hour, min: p0.min, ampm: p0.ampm };
+  S.btwFrom = { hour: p0.hour, min: p0.min, ampm: p0.ampm };
+  S.btwTo = { hour: p0.hour, min: p0.min, ampm: p0.ampm };
+
+  // elements
+  const liveClock = el('liveClock'), liveDate = el('liveDate');
+  const themeToggle = el('themeToggle');
+  const tabAdd = el('tabAdd'), tabBetween = el('tabBetween');
+  const modeAddWrap = el('modeAddWrap'), modeBetweenWrap = el('modeBetweenWrap');
+
+  const fromNowBtn = el('fromNowBtn'), fromCustomBtn = el('fromCustomBtn');
+  const fromNowDisplay = el('fromNowDisplay'), fromNowTime = el('fromNowTime'), fromNowDate = el('fromNowDate');
+  const fromCustomFields = el('fromCustomFields');
+  const fromDate = el('fromDate');
+  const syncNowBtn = el('syncNowBtn');
+  const addResultTime = el('addResultTime'), addResultDate = el('addResultDate'), addResultSub = el('addResultSub');
+
+  const btwFromDate = el('btwFromDate'), btwToDate = el('btwToDate');
+  const btwFromNowBtn = el('btwFromNowBtn'), btwToNowBtn = el('btwToNowBtn');
+  const btwResultTime = el('btwResultTime'), btwResultSub = el('btwResultSub'), btwFlag = el('btwFlag');
+
+  fromDate.value = p0.dateStr;
+  btwFromDate.value = p0.dateStr;
+  btwToDate.value = p0.dateStr;
+
+  function recalc() {
+    if (mode === 'add') { updateFromDisplay(); computeAdd(); }
+    else { computeBetween(); }
+  }
+
+  // ---- wheels: add-duration FROM custom ----
+  const fromHourWheel = makeWheel({ container: el('fromHourWheel'), values: HOURS, format: v => String(v), initial: S.from.hour, parseInput: parseHour, onChange: v => { S.from.hour = v; recalc(); } });
+  const fromMinWheel = makeWheel({ container: el('fromMinWheel'), values: MINS, format: pad2, initial: S.from.min, parseInput: parseMin, onChange: v => { S.from.min = v; recalc(); } });
+  const fromAmpmWheel = makeWheel({ container: el('fromAmpmWheel'), values: AMPM, format: v => v, initial: S.from.ampm, parseInput: parseAmpm, onChange: v => { S.from.ampm = v; recalc(); } });
+
+  // ---- wheels: duration ----
+  const durDaysWheel = makeWheel({ container: el('durDaysWheel'), values: DAYS_D, format: v => String(v), initial: S.dur.days, parseInput: parseDurD(99), onChange: v => { S.dur.days = v; recalc(); } });
+  const durHoursWheel = makeWheel({ container: el('durHoursWheel'), values: HOURS_D, format: v => String(v), initial: S.dur.hours, parseInput: parseDurD(99), onChange: v => { S.dur.hours = v; recalc(); } });
+  const durMinsWheel = makeWheel({ container: el('durMinsWheel'), values: MINS_D, format: v => String(v), initial: S.dur.mins, parseInput: parseDurD(59), onChange: v => { S.dur.mins = v; recalc(); } });
+
+  // ---- wheels: between FROM ----
+  const btwFromHourWheel = makeWheel({ container: el('btwFromHourWheel'), values: HOURS, format: v => String(v), initial: S.btwFrom.hour, parseInput: parseHour, onChange: v => { S.btwFrom.hour = v; recalc(); } });
+  const btwFromMinWheel = makeWheel({ container: el('btwFromMinWheel'), values: MINS, format: pad2, initial: S.btwFrom.min, parseInput: parseMin, onChange: v => { S.btwFrom.min = v; recalc(); } });
+  const btwFromAmpmWheel = makeWheel({ container: el('btwFromAmpmWheel'), values: AMPM, format: v => v, initial: S.btwFrom.ampm, parseInput: parseAmpm, onChange: v => { S.btwFrom.ampm = v; recalc(); } });
+
+  // ---- wheels: between TO ----
+  const btwToHourWheel = makeWheel({ container: el('btwToHourWheel'), values: HOURS, format: v => String(v), initial: S.btwTo.hour, parseInput: parseHour, onChange: v => { S.btwTo.hour = v; recalc(); } });
+  const btwToMinWheel = makeWheel({ container: el('btwToMinWheel'), values: MINS, format: pad2, initial: S.btwTo.min, parseInput: parseMin, onChange: v => { S.btwTo.min = v; recalc(); } });
+  const btwToAmpmWheel = makeWheel({ container: el('btwToAmpmWheel'), values: AMPM, format: v => v, initial: S.btwTo.ampm, parseInput: parseAmpm, onChange: v => { S.btwTo.ampm = v; recalc(); } });
+
+  function getFromDate() {
+    if (fromMode === 'now') return new Date(liveNow);
+    return buildDate(fromDate.value, S.from.hour, S.from.min, S.from.ampm);
+  }
+
+  function updateHeaderClock() {
+    liveClock.textContent = fmtTime12(liveNow, true);
+    liveDate.textContent = fmtDateLine(liveNow);
+  }
+
+  function updateFromDisplay() {
+    const f = getFromDate();
+    fromNowTime.textContent = fmtTime12(f, fromMode === 'now');
+    fromNowDate.textContent = fmtDateLine(f);
+  }
+
+  function computeAdd() {
+    const from = getFromDate();
+    const { days, hours, mins } = S.dur;
+    const result = new Date(from.getTime() + (days * 86400000 + hours * 3600000 + mins * 60000));
+
+    addResultTime.textContent = fmtTime12(result, false);
+    addResultDate.textContent = fmtDateLine(result);
+
+    const dayDiff = Math.round((new Date(result.getFullYear(), result.getMonth(), result.getDate()) -
+                                 new Date(from.getFullYear(), from.getMonth(), from.getDate())) / 86400000);
+    let flag = '';
+    if (dayDiff === 1) flag = ' — next day';
+    else if (dayDiff > 1) flag = ` — +${dayDiff} days`;
+    else if (dayDiff < 0) flag = ` — ${Math.abs(dayDiff)} day(s) earlier`;
+    addResultSub.textContent = `${days ? days + 'd ' : ''}${hours}h ${mins}m from ${fromMode === 'now' ? 'now' : 'the from time'}${flag}`;
+  }
+
+  function computeBetween() {
+    const from = buildDate(btwFromDate.value, S.btwFrom.hour, S.btwFrom.min, S.btwFrom.ampm);
+    const to = buildDate(btwToDate.value, S.btwTo.hour, S.btwTo.min, S.btwTo.ampm);
+    const diffMs = to.getTime() - from.getTime();
+    const after = diffMs >= 0;
+    const abs = Math.abs(diffMs);
+
+    const totalMin = Math.floor(abs / 60000);
+    const days = Math.floor(totalMin / 1440);
+    const hours = Math.floor((totalMin % 1440) / 60);
+    const mins = totalMin % 60;
+
+    let big = '';
+    if (days > 0) big += `${days}d `;
+    big += `${hours}h ${mins}m`;
+    btwResultTime.textContent = big;
+
+    const totalHoursDec = (abs / 3600000).toFixed(2);
+    btwResultSub.textContent =
+      `${fmtTime12(from, false)} · ${fmtDateLine(from)}  →  ${fmtTime12(to, false)} · ${fmtDateLine(to)}` +
+      `  (${totalHoursDec} hrs total)`;
+    btwFlag.textContent = after ? 'TO is after FROM' : 'TO is before FROM';
+  }
+
+  // ---- events: add-duration mode ----
+  fromNowBtn.addEventListener('click', () => {
+    fromMode = 'now';
+    fromNowBtn.classList.add('active'); fromCustomBtn.classList.remove('active');
+    fromCustomFields.classList.add('hidden');
+    syncNowBtn.classList.add('hidden');
+    fromNowDisplay.classList.remove('hidden');
+    recalc();
+  });
+  fromCustomBtn.addEventListener('click', () => {
+    fromMode = 'custom';
+    fromCustomBtn.classList.add('active'); fromNowBtn.classList.remove('active');
+    fromCustomFields.classList.remove('hidden');
+    syncNowBtn.classList.remove('hidden');
+    recalc();
+  });
+  syncNowBtn.addEventListener('click', () => {
+    const p = nowParts();
+    S.from = { hour: p.hour, min: p.min, ampm: p.ampm };
+    fromDate.value = p.dateStr;
+    fromHourWheel.setValue(p.hour); fromMinWheel.setValue(p.min); fromAmpmWheel.setValue(p.ampm);
+    recalc();
+  });
+  fromDate.addEventListener('input', recalc);
+
+  // ---- events: between mode ----
+  btwFromNowBtn.addEventListener('click', () => {
+    const p = nowParts();
+    S.btwFrom = { hour: p.hour, min: p.min, ampm: p.ampm };
+    btwFromDate.value = p.dateStr;
+    btwFromHourWheel.setValue(p.hour); btwFromMinWheel.setValue(p.min); btwFromAmpmWheel.setValue(p.ampm);
+    recalc();
+  });
+  btwToNowBtn.addEventListener('click', () => {
+    const p = nowParts();
+    S.btwTo = { hour: p.hour, min: p.min, ampm: p.ampm };
+    btwToDate.value = p.dateStr;
+    btwToHourWheel.setValue(p.hour); btwToMinWheel.setValue(p.min); btwToAmpmWheel.setValue(p.ampm);
+    recalc();
+  });
+  btwFromDate.addEventListener('input', recalc);
+  btwToDate.addEventListener('input', recalc);
+
+  // ---- tabs ----
+  tabAdd.addEventListener('click', () => {
+    mode = 'add';
+    tabAdd.classList.add('active'); tabBetween.classList.remove('active');
+    modeAddWrap.classList.remove('hidden'); modeBetweenWrap.classList.add('hidden');
+    recalc();
+  });
+  tabBetween.addEventListener('click', () => {
+    mode = 'between';
+    tabBetween.classList.add('active'); tabAdd.classList.remove('active');
+    modeBetweenWrap.classList.remove('hidden'); modeAddWrap.classList.add('hidden');
+    recalc();
+  });
+
+  themeToggle.addEventListener('click', () => {
+    const root = document.documentElement;
+    if (root.getAttribute('data-theme') === 'light') {
+      root.setAttribute('data-theme', 'dark');
+      themeToggle.textContent = 'Light';
+    } else {
+      root.setAttribute('data-theme', 'light');
+      themeToggle.textContent = 'Dark';
+    }
+  });
+
+  // ---- tick ----
+  function tick() {
+    liveNow = new Date();
+    updateHeaderClock();
+    if (mode === 'add' && fromMode === 'now') recalc();
+  }
+  tick();
+  recalc();
+  setInterval(tick, 1000);
+})();
+</script>
+</body>
+</html>
